@@ -72,7 +72,32 @@ class Database:
              ORDER BY id
         ''', (pattern, pattern, pattern, pattern))
         return self.cursor.fetchall()
-
+    
+    def count_books(self):
+        """Общее количество книг"""
+        self.cursor.execute("SELECT COUNT(*) FROM library")
+        return self.cursor.fetchone()[0]
+    
+    def count_by_genre(self):
+        """Количество книг по жанрам"""
+        self.cursor.execute('''
+            SELECT genre, COUNT(*)
+            FROM library
+            GROUP BY genre
+            ORDER BY COUNT(*) DESC, genre
+        ''')
+        return self.cursor.fetchall()
+    
+    def count_by_author(self):
+        """Количество книг по авторам"""
+        self.cursor.execute('''
+            SELECT author, COUNT(*)
+            FROM library
+            GROUP BY author
+            ORDER BY COUNT(*) DESC, author
+        ''')
+        return self.cursor.fetchall()
+    
     def close(self):
         """Закрытие соединения с базой данных"""
         self.conn.close()

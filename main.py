@@ -79,9 +79,6 @@ class BookDialog(QDialog):
     
     def load_book_data(self):
         """Загрузка данных книги для редактирования"""
-    #    self.book_data: (id, title, author, year, genre)
-    #    self.title_edit.setText(self.book_data[1])
-        # self.desc_edit.setText(self.book_data[2] if self.task_data[2] else "")
         self.title_edit.setText(self.book_data[1] or "")
         self.volume_edit.setText(self.book_data[2] or "")
         self.author_edit.setPlainText(self.book_data[3] or "")
@@ -98,11 +95,45 @@ class BookDialog(QDialog):
             'genre': self.genre_edit.toPlainText().strip(),
         }
 
+class StatsDialog(QDialog):
+    """Статистика по жанрам и авторам"""
+    def __init__(self, parent, total, genres, authors):
+        super().__init__(parent)
+        self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
+        self.setWindowTitle("Статистика")
+        self.resize(1000, 600)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(f"Всего книг: {total}"))
+        tables = QHBoxLayout()
+        tables.addWidget(self.make_table("По жанрам", "Жанр", genres))
+        tables.addWidget(self.make_table("По авторам", "Автор", authors))
+        layout.addLayout(tables)
+        buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        buttons.button(QDialogButtonBox.Close).setText("Закрыть")
+        buttons.rejected.connect(self.accept)
+        layout.addWidget(buttons)
+
+    def make_table(self, title, name_header, rows):
+        box = QGroupBox(title)
+        box_layout = QVBoxLayout(box)
+        table = QTableWidget(len(rows), 2)
+        table.setHorizontalHeaderLabels([name_header, "Количество"])
+        table.setEditTriggers(QTableWidget.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectRows)
+        table.verticalHeader().setVisible(False)
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        for row, (name, count) in enumerate(rows):
+            title_text = name.strip() if name and str(name).strip() else "Не указан"
+            table.setItem(row, 0, QTableWidgetItem(title_text))
+            table.setItem(row, 1, QTableWidgetItem(str(count)))
+        box_layout.addWidget(table)
+        return box
+
 class Library(QMainWindow):
     def __init__(self):
         super().__init__()
         self.db = Database()
-     #   self.current_filter = "Все"
         self.init_ui()
         self.load_books()
     
@@ -150,8 +181,14 @@ class Library(QMainWindow):
         self.delete_btn.setMinimumHeight(40)
         self.delete_btn.clicked.connect(self.delete_book)
         toolbar.addWidget(self.delete_btn)
-        
+
         toolbar.addStretch()
+
+        #Статистика
+        self.stats_btn = QPushButton("Статистика")
+        self.stats_btn.setMinimumHeight(40)
+        self.stats_btn.clicked.connect(self.show_statistics)
+        toolbar.addWidget(self.stats_btn)       
                 
         # Поиск
         toolbar.addWidget(QLabel("Поиск:"))
@@ -194,63 +231,7 @@ class Library(QMainWindow):
         """Создание строки состояния"""
         self.status_label = QLabel("Готов к работе")
         self.statusBar().addWidget(self.status_label)
-    
-    def apply_styles(self):
-        """Применение стилей к приложению"""
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f5f5f5;
-            }
-            QPushButton {
-                background-color: #2196F3;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #1976D2;
-            }
-            QPushButton:pressed {
-                background-color: #0D47A1;
-            }
-            QTableWidget {
-                background-color: white;
-                alternate-background-color: #f9f9f9;
-                selection-background-color: #BBDEFB;
-                gridline-color: #E0E0E0;
-            }
-            QHeaderView::section {
-                background-color: #2196F3;
-                color: white;
-                padding: 8px;
-                border: none;
-                font-weight: bold;
-            }
-            QComboBox, QLineEdit, QDateEdit {
-                padding: 5px;
-                border: 1px solid #BDBDBD;
-                border-radius: 4px;
-                min-height: 20px;
-            }
-            QComboBox:focus, QLineEdit:focus, QDateEdit:focus {
-                border: 2px solid #2196F3;
-            }
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #BDBDBD;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-        """)
-    
+       
     def load_books(self):
         """Загрузка книг в таблицу"""
         if hasattr(self, 'search_edit') and self.search_edit.text():
@@ -280,7 +261,6 @@ class Library(QMainWindow):
                     data['genre']
                 )
                 self.load_books()
-               # self.update_statistics()
                 self.status_label.setText(f"Книга '{data['title']}' добавлена")
             else:
                 QMessageBox.warning(self, "Ошибка", "Название книги не может быть пустым")
@@ -350,6 +330,16 @@ class Library(QMainWindow):
         self.db.close()
         event.accept()
 
+    #Показ статистики
+    def show_statistics(self):
+        """Показ статистики по жанрам и авторам"""
+        dialog = StatsDialog(
+        self,
+        self.db.count_books(),
+        self.db.count_by_genre(),
+        self.db.count_by_author(),
+        )
+        dialog.exec_()
 
 def main():
     app = QApplication(sys.argv)
