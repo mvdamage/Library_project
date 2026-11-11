@@ -156,7 +156,7 @@ class Library(QMainWindow):
         
         # Нижняя панель
         self.create_status_bar()
-        
+
         # Применение стилей
         self.apply_styles()
     
@@ -204,19 +204,18 @@ class Library(QMainWindow):
     def create_book_table(self, parent_layout):
         """Создание таблицы книг"""
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels([
-            "N", "Название", "Том", "Автор", "Год издания", "Жанр"
+            "Название", "Том", "Автор", "Год издания", "Жанр"
         ])
         
         # Настройка таблицы
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.Stretch)
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setSelectionMode(QTableWidget.SingleSelection)
@@ -231,6 +230,62 @@ class Library(QMainWindow):
         """Создание строки состояния"""
         self.status_label = QLabel("Готов к работе")
         self.statusBar().addWidget(self.status_label)
+
+    def apply_styles(self):
+        """Применение стилей к приложению"""
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #f5f5f0;
+            }
+            QPushButton {
+                background-color: #9fa1a3;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #747676;
+            }
+            QPushButton:pressed {
+                background-color: #444546;
+            }
+            QTableWidget {
+                background-color: white;
+                alternate-background-color: #f9f9f9;
+                selection-background-color: #BBDEFB;
+                gridline-color: #E0E0E0;
+            }
+            QHeaderView::section {
+                background-color: #9fa1a3;
+                color: white;
+                padding: 8px;
+                border: none;
+                font-weight: bold;
+            }
+            QComboBox, QLineEdit, QDateEdit {
+                padding: 5px;
+                border: 1px solid #BDBDBD;
+                border-radius: 4px;
+                min-height: 20px;
+            }
+            QComboBox:focus, QLineEdit:focus, QDateEdit:focus {
+                border: 2px solid #9fa1a3;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #BDBDBD;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+        """)
        
     def load_books(self):
         """Загрузка книг в таблицу"""
@@ -241,10 +296,19 @@ class Library(QMainWindow):
         
         self.table.setRowCount(len(books))
         
+        #for row, book in enumerate(books):
+        #    for col, value in enumerate(book):
+        #        item = QTableWidgetItem(str(value) if value else "")
+        #        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        #        self.table.setItem(row, col, item)
+        
         for row, book in enumerate(books):
-            for col, value in enumerate(book):
-                item = QTableWidgetItem(str(value) if value else "")
+            # book: (id, title, volume, author, year, genre)
+            for col, value in enumerate(book[1:]):
+                item = QTableWidgetItem("" if value is None else str(value))
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                if col == 0:
+                    item.setData(Qt.UserRole, book[0])  # id книги
                 self.table.setItem(row, col, item)
         
     def add_book(self):
@@ -272,7 +336,11 @@ class Library(QMainWindow):
             QMessageBox.information(self, "Информация", "Выберите книгу для редактирования")
             return
         
-        book_id = int(self.table.item(current_row, 0).text())
+        # book_id = int(self.table.item(current_row, 0).text())
+        item = self.table.item(current_row, 0)
+        if item is None:
+            return
+        book_id = int(item.data(Qt.UserRole))
         
         # Получаем полные данные задачи из БД
         library = self.db.get_all_books()
@@ -302,9 +370,13 @@ class Library(QMainWindow):
         if current_row < 0:
             QMessageBox.information(self, "Информация", "Выберите книгу для удаления")
             return
-        
-        book_id = int(self.table.item(current_row, 0).text())
-        book_title = self.table.item(current_row, 1).text()
+            
+        # book_id = int(self.table.item(current_row, 0).text())
+        # book_title = self.table.item(current_row, 1).text()
+
+        item0 = self.table.item(current_row, 0)
+        book_id = int(item0.data(Qt.UserRole))
+        book_title = item0.text()
 
         box = QMessageBox(self)
         box.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
