@@ -2,12 +2,12 @@ import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QTableWidget, QTableWidgetItem, QLabel, QLineEdit,
-    QComboBox, QTextEdit, QDateEdit, QMessageBox, QTabWidget,
-    QHeaderView, QSplitter, QFrame, QDialog, QDialogButtonBox,
-    QFormLayout, QGroupBox, QGridLayout, QProgressBar
+    QTextEdit, QMessageBox,
+    QHeaderView, QDialog, QDialogButtonBox,
+    QFormLayout, QGroupBox
 )
-from PyQt5.QtCore import Qt, QDate, pyqtSignal
-from PyQt5.QtGui import QFont, QIcon, QColor
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 
 from database import Database
 
@@ -33,14 +33,14 @@ class BookDialog(QDialog):
         form_layout = QFormLayout()
         
         # Название книги
-        self.title_edit = QLineEdit()
+        self.title_edit = QTextEdit()
         self.title_edit.setMaximumHeight(100)
         self.title_edit.setPlaceholderText("Введите название книги")
         form_layout.addRow("Название:", self.title_edit)
 
         # Том книги
         self.volume_edit = QLineEdit()
-        self.volume_edit.setMaximumHeight(100)
+        self.volume_edit.setMaximumHeight(50)
         self.volume_edit.setPlaceholderText("Введите том книги")
         form_layout.addRow("Том: (при наличии)", self.volume_edit)
 
@@ -51,7 +51,7 @@ class BookDialog(QDialog):
         form_layout.addRow("Автор:", self.author_edit)
 
         # Год
-        self.year_edit = QTextEdit()
+        self.year_edit = QLineEdit()
         self.year_edit.setMaximumHeight(50)
         self.year_edit.setPlaceholderText("Введите год издания книги")
         form_layout.addRow("Год издания:", self.year_edit)
@@ -79,19 +79,20 @@ class BookDialog(QDialog):
     
     def load_book_data(self):
         """Загрузка данных книги для редактирования"""
-        self.title_edit.setText(self.book_data[1] or "")
-        self.volume_edit.setText(self.book_data[2] or "")
+        self.title_edit.setPlainText(self.book_data[1] or "")
+        vol = self.book_data[2] 
+        self.volume_edit.setText("" if vol is None else str(vol))
         self.author_edit.setPlainText(self.book_data[3] or "")
-        self.year_edit.setPlainText("" if self.book_data[4] is None else str(self.book_data[4]))
+        self.year_edit.setText("" if self.book_data[4] is None else str(self.book_data[4]))
         self.genre_edit.setPlainText(self.book_data[5] or "")
         
     def get_book_data(self):
         """Получение данных из формы"""
         return {
-            'title': self.title_edit.text().strip(),
+            'title': self.title_edit.toPlainText().strip(),
             'volume': self.volume_edit.text().strip(),
             'author': self.author_edit.toPlainText().strip(),
-            'year': self.year_edit.toPlainText().strip(),
+            'year': self.year_edit.text().strip(),
             'genre': self.genre_edit.toPlainText().strip(),
         }
 
@@ -208,6 +209,8 @@ class Library(QMainWindow):
         self.table.setHorizontalHeaderLabels([
             "Название", "Том", "Автор", "Год издания", "Жанр"
         ])
+        # self.table.setSortingEnabled(False)  # пока заполняем — выключена
+        # self.table.horizontalHeader().setSortIndicatorShown(True)
         
         # Настройка таблицы
         header = self.table.horizontalHeader()
@@ -296,12 +299,6 @@ class Library(QMainWindow):
         
         self.table.setRowCount(len(books))
         
-        #for row, book in enumerate(books):
-        #    for col, value in enumerate(book):
-        #        item = QTableWidgetItem(str(value) if value else "")
-        #        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
-        #        self.table.setItem(row, col, item)
-        
         for row, book in enumerate(books):
             # book: (id, title, volume, author, year, genre)
             for col, value in enumerate(book[1:]):
@@ -310,6 +307,24 @@ class Library(QMainWindow):
                 if col == 0:
                     item.setData(Qt.UserRole, book[0])  # id книги
                 self.table.setItem(row, col, item)
+
+        self.table.setSortingEnabled(False)
+        self.table.setRowCount(len(books))
+        for row, book in enumerate(books):
+            for col, value in enumerate(book[1:]):
+                text = "" if value is None else str(value)
+                item = QTableWidgetItem(text)
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+
+                # Числа сортируются как числа, не как строки
+                if col in (1, 3):
+                    try:
+                        item.setData(Qt.EditRole, int(value))
+                    except (TypeError, ValueError):
+                        item.setData(Qt.EditRole, 0)
+                self.table.setItem(row, col, item)
+
+        self.table.setSortingEnabled(True)
         
     def add_book(self):
         """Добавление новой книги"""
@@ -336,7 +351,6 @@ class Library(QMainWindow):
             QMessageBox.information(self, "Информация", "Выберите книгу для редактирования")
             return
         
-        # book_id = int(self.table.item(current_row, 0).text())
         item = self.table.item(current_row, 0)
         if item is None:
             return
@@ -371,9 +385,6 @@ class Library(QMainWindow):
             QMessageBox.information(self, "Информация", "Выберите книгу для удаления")
             return
             
-        # book_id = int(self.table.item(current_row, 0).text())
-        # book_title = self.table.item(current_row, 1).text()
-
         item0 = self.table.item(current_row, 0)
         book_id = int(item0.data(Qt.UserRole))
         book_title = item0.text()

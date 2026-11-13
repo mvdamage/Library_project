@@ -3,11 +3,11 @@ import sqlite3
 class Database:
     def __init__(self, db_name="library.db"):
         self.conn = sqlite3.connect(db_name)
-        self.conn.create_function(
+        """self.conn.create_function(
             "py_lower",
             1,
             lambda value: "" if value is None else str(value).lower(),
-        )
+        )"""
         self.cursor = self.conn.cursor()
         self.create_table()
     
@@ -49,6 +49,13 @@ class Database:
         ''', (title, volume, author, year, genre, book_id))
         self.conn.commit()
         return self.cursor.rowcount > 0
+
+    def _norm_volume(self, volume):
+        """Нормализация сохранения тома книги"""
+        if volume is None:
+            return ""
+        s = str(volume).strip()
+        return "" if not s else s
 
     def get_all_books(self):
         """Получение всех книг"""
@@ -97,6 +104,31 @@ class Database:
             ORDER BY COUNT(*) DESC, author
         ''')
         return self.cursor.fetchall()
+
+    def is_duplicate_book(self, title, volume, author, year, genre, exclude_id=None):
+        """ Проверка на дубликаты
+        True, если в БД уже есть книга с теми же полями.
+        exclude_id — id текущей книги при редактировании (её не считаем дубликатом).
+        """
+        title = (title or "").strip()
+        author = (author or "").strip()
+        genre = (genre or "").strip()
+        year_s = str(year).strip() if year is not None else ""
+        vol = self._norm_volume(volume)
+        sql = """
+            SELECT id FROM library
+            WHERE title = ?
+                AND author = ?
+                AND genre = ?
+                AND CAST(year AS TEXT) = ?
+                AND COALESCE(TRIM(CAST(volume AS TEXT)), '') = ?
+        """
+        params = [title, author, genre, year_s, vol]
+        if exclude_id is not None:
+            sql += " AND id != ?"
+            params.append(exclude_id)
+        self.cursor.execute(sql, params)
+        return self.cursor.fetchone() is not None
     
     def close(self):
         """Закрытие соединения с базой данных"""
